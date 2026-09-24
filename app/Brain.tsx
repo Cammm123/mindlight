@@ -1,5 +1,6 @@
 'use client';
 import {useEffect,useRef,useState} from 'react';
+import {createBrainFallback} from './brain-fallback';
 import * as T from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {DRACOLoader} from 'three/addons/loaders/DRACOLoader.js';
@@ -11,7 +12,7 @@ export default function Brain({active,selected,onSelect,xray,rotate,reset}:{acti
  useEffect(()=>{resetCamera.current()},[reset]);
  useEffect(()=>{
   const container=host.current!;let renderer:T.WebGLRenderer;
-  try{renderer=new T.WebGLRenderer({antialias:true,alpha:true,powerPreference:'low-power'})}catch{setStatus('3D is unavailable on this device. Chat still works.');return;}
+  try{renderer=new T.WebGLRenderer({antialias:true,alpha:true,powerPreference:'low-power'})}catch{return createBrainFallback(container,()=>state.current,setStatus);}
   let disposed=false,frame=0;renderer.setPixelRatio(Math.min(window.devicePixelRatio,1.7));renderer.setClearColor(0,0);container.appendChild(renderer.domElement);
   const scene=new T.Scene(),camera=new T.PerspectiveCamera(36,1,.01,100);camera.position.set(-5.6,2.4,5.8);
   const controls=new OrbitControls(camera,renderer.domElement);controls.enablePan=false;controls.enableDamping=true;controls.minDistance=4;controls.maxDistance=12;controls.autoRotateSpeed=.45;
@@ -42,7 +43,7 @@ export default function Brain({active,selected,onSelect,xray,rotate,reset}:{acti
    for(const w of wires){const id=w.userData.region as RegionId;const lit=s.active.includes(id)||id===s.selected;w.material.color.set(lit?findRegion(id).color:'#9faec5');w.material.opacity=s.xray?(lit?.17:.065):.025;}
    renderer.render(scene,camera);
   };frame=requestAnimationFrame(draw);
-  return()=>{disposed=true;cancelAnimationFrame(frame);resize.disconnect();controls.dispose();draco.dispose();renderer.domElement.removeEventListener('pointerdown',down);renderer.domElement.removeEventListener('pointerup',up);for(const w of wires){w.geometry.dispose();w.material.dispose()}for(const m of meshes){m.geometry.dispose();m.material.dispose()}renderer.dispose();renderer.domElement.remove();};
+  return()=>{disposed=true;cancelAnimationFrame(frame);resize.disconnect();controls.dispose();draco.dispose();renderer.domElement.removeEventListener('pointerdown',down);renderer.domElement.removeEventListener('pointerup',up);for(const w of wires){w.geometry.dispose();w.material.dispose()}for(const m of meshes){m.geometry.dispose();m.material.dispose()}renderer.dispose();renderer.forceContextLoss();renderer.domElement.remove();};
  },[]);
- return <div className="brain-canvas" ref={host} role="img" aria-label="Interactive 3D anatomical human brain. Drag to rotate; scroll to zoom. Use the arrow keys on the brain to explore regions.">{status&&<div className="model-status" role="status">{status}</div>}</div>
+ return <div className="brain-canvas" role="img" aria-label="Interactive 3D anatomical human brain. Drag to rotate; scroll to zoom. Use the arrow keys on the brain to explore regions."><div className="renderer-canvas" ref={host}/>{status&&<div className="model-status" role="status">{status}</div>}</div>
 }
