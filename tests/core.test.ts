@@ -1,0 +1,10 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {analyze,mapAnatomy} from '../app/brain-data';
+import {demoReply,memoryAction,reply} from '../app/chat-service';
+test('math recruits a distributed network',()=>{assert.deepEqual(analyze('24 × 7').regions,['temporal','frontal','parietal'])});
+test('memory and emotion can overlap',()=>{const a=analyze('I remember feeling happy yesterday');assert.ok(a.regions.includes('hippocampus'));assert.ok(a.regions.includes('amygdala'))});
+test('notes require an explicit save instruction; questions do not save',()=>{assert.equal(memoryAction('Remember that I like the ocean.'),'save');assert.equal(memoryAction('Remember what I said?'),null);assert.equal(memoryAction('What do you remember?'),'recall');assert.equal(memoryAction('Forget all notes'),'forget')});
+test('model mapping excludes blood vessels',()=>{assert.equal(mapAnatomy({bx_cat:'arteries',bx_region:'Frontal lobe'}),undefined);assert.equal(mapAnatomy({bx_cat:'cortex',bx_label:'Hippocampus'}),'hippocampus')});
+test('demo calculates and labels unsupported conversation honestly',()=>{assert.match(demoReply('24 × 7',[]),/168/);assert.match(demoReply('5 / 0',[]),/undefined/);assert.match(demoReply('2 + 3 * 4',[]),/guided demo/);assert.match(demoReply('Discuss quantum mechanics',[]),/guided demo/)});
+test('provider rejects unauthorized key without leaking it',async()=>{const old=globalThis.fetch;globalThis.fetch=async()=>new Response('{}',{status:401});try{await assert.rejects(reply([{role:'user',content:'Hello'}],[],{provider:'openrouter',apiKey:'test-only',model:'test'},new AbortController().signal),/key was not accepted/)}finally{globalThis.fetch=old}});

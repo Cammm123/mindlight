@@ -30,7 +30,7 @@ export default function Brain({active,selected,onSelect,xray,rotate,reset}:{acti
    });
    // Separate traversal: keep actual anatomy and expose its triangulated skeleton.
    for(const m of meshes){const wire=new T.LineSegments(new T.WireframeGeometry(m.geometry),new T.LineBasicMaterial({color:'#9eafcb',transparent:true,opacity:.055,depthWrite:false}));wire.userData.region=m.userData.region;m.add(wire);wires.push(wire)}
-   scene.updateMatrixWorld(true);console.info('Brain loaded '+JSON.stringify({bounds:new T.Box3().setFromObject(model),matrix:gltf.scene.matrix.elements,camera:camera.position.toArray(),width:container.clientWidth,height:container.clientHeight}));setStatus('');
+   scene.updateMatrixWorld(true);setStatus('');
   },undefined,()=>setStatus('The 3D model could not load. Refresh to retry, or explore the region cards below.'));
   const ray=new T.Raycaster(),pointer=new T.Vector2();let start=[0,0];const down=(e:PointerEvent)=>{start=[e.clientX,e.clientY]};
   const up=(e:PointerEvent)=>{if(Math.hypot(e.clientX-start[0],e.clientY-start[1])>5)return;const rect=renderer.domElement.getBoundingClientRect();pointer.set((e.clientX-rect.left)/rect.width*2-1,-(e.clientY-rect.top)/rect.height*2+1);ray.setFromCamera(pointer,camera);const hit=ray.intersectObjects(meshes,false).find(h=>h.object.userData.region);if(hit)state.current.onSelect(hit.object.userData.region)};
