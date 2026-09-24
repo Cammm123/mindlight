@@ -14,7 +14,11 @@
     "db:generate": "drizzle-kit generate",
     "codex:bridge": "node scripts/codex-bridge.mjs",
     "test": "node scripts/test.mjs",
-    "dev:codex": "node scripts/dev-codex.mjs"
+    "dev:codex": "node scripts/dev-codex.mjs",
+    "setup": "node scripts/setup.mjs",
+    "doctor": "node scripts/setup.mjs --check",
+    "local": "node scripts/dev-codex.mjs",
+    "codex:login": "node scripts/codex-login.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
@@ -46,6 +50,7 @@
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.37.1",
     "@cloudflare/workers-types": "4.20260515.1",
+    "@openai/codex": "0.156.1",
     "@tailwindcss/postcss": "4.2.1",
     "@types/node": "22.19.19",
     "@types/react": "19.2.14",

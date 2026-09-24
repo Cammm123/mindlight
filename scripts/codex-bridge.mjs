@@ -4,6 +4,8 @@ import {spawn} from 'node:child_process';
 import {mkdtemp,rm} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
+import {codexCommand,requireChatGPTLogin} from './local-codex.mjs';
+requireChatGPTLogin();
 const token=process.env.CODEX_BRIDGE_TOKEN;
 if(!token||token.length<24)throw new Error('Set CODEX_BRIDGE_TOKEN to a random value of at least 24 characters. Use the same value in .dev.vars.');
 let running=false;
@@ -18,9 +20,12 @@ const server=http.createServer(async(req,res)=>{
  let messages;try{messages=JSON.parse(raw).messages;if(!Array.isArray(messages)||messages.length===0||messages.length>21||messages.some(m=>!['system','user','assistant'].includes(m.role)||typeof m.content!=='string'||m.content.length>16000))throw new Error()}catch{return json(400,{error:'Invalid messages'})}
  running=true;let directory;
  try{
+  // Recheck in case another Codex session changed the shared login.
+  requireChatGPTLogin();
   directory=await mkdtemp(path.join(tmpdir(),'mindlight-chat-'));
   const args=['exec','--ignore-user-config','--ignore-rules','--ephemeral','--skip-git-repo-check','--sandbox','read-only','--json','--color','never','-C',directory,'-c','approval_policy="never"','-c','features.shell_tool=false','-c','features.unified_exec=false','-c','features.apps=false','-c','features.multi_agent=false','-c','features.skill_search=false','-c','web_search="disabled"','-'];
-  const child=spawn(process.env.CODEX_BIN||'codex',args,{stdio:['pipe','pipe','pipe'],shell:false});
+  const command=codexCommand();
+  const child=spawn(command.file,[...command.args,...args],{stdio:['pipe','pipe','pipe'],shell:false});
   let output='',response='',overflow=false,totalBytes=0;
   const timeout=setTimeout(()=>child.kill('SIGTERM'),110000);
   const abort=()=>child.kill('SIGTERM');res.on('close',abort);

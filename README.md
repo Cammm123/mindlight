@@ -13,32 +13,47 @@
 - Explicit notes, stored only in browser localStorage, with recall and deletion controls. Conversation history is in memory only. New conversation clears history but preserves saved notes.
 - Responsive layout, reduced-motion support, keyboard-accessible region controls, and optional WebMCP region exploration.
 
-## Run
+## Run locally with your ChatGPT account — no API key
 
-Node 22.13+ required.
+Each person runs their own copy of Mindlight and signs into **their own Codex CLI**. Nothing connects to the repository creator’s account. The app includes the official Codex CLI as a pinned development dependency, so a separate global CLI install is unnecessary.
+
+You need Git, **Node.js 22.13+**, an internet connection, and a ChatGPT account with **Codex CLI access and available usage**. This is a local interface to a cloud model, not an offline model. Replies count against your account’s Codex allowance. Check [OpenAI’s current plan availability](https://learn.chatgpt.com/docs/pricing): Free/Go access is currently listed for the desktop app, so a free ChatGPT account alone is not a guarantee of CLI access. Managed workspaces may restrict access.
 
 ```sh
+git clone https://github.com/Cammm123/mindlight.git
+cd mindlight
 npm ci
-npm run dev
+npm run setup
+npm run local
 ```
 
-Open the printed local URL. `npm run build` emits the Cloudflare-compatible site; `npx tsc --noEmit` checks types.
+`setup` reuses an existing ChatGPT login or opens the official sign-in flow. Complete sign-in yourself in the browser. `local` starts the app and private bridge together; open **http://localhost:5173**. The footer says **Codex** when connected. Stop both servers with Ctrl+C. Next time, just run `npm run local`.
+
+No API key, hosting account, configuration editing, or paid API billing setup is required. If Node is missing, install it from [nodejs.org](https://nodejs.org/). macOS is verified; on Windows, WSL2 is recommended. Native Windows and Linux have not yet been tested end to end.
+
+### Ask ChatGPT or Codex to set it up
+
+Copy this prompt into a **local coding session with access to your terminal/files**, such as Codex on your computer:
+
+> Set up https://github.com/Cammm123/mindlight locally using my own ChatGPT/Codex login, with no API key. Read its README and AGENTS.md. Clone the repository if needed, install dependencies with npm ci, run npm run setup, and start npm run local. Let me complete any required official browser sign-in. Verify that /api/chat reports Codex, then send a short test message and open the local website. Never ask me to paste credentials or copy auth.json. Keep the connection on localhost.
+
+An ordinary ChatGPT web conversation can guide you through the commands but cannot access your computer by itself. See [the setup guide](docs/LOCAL_SETUP.md) for troubleshooting.
 
 ## Chat providers
 
-### OpenRouter (works on the public site now)
+### Codex (default local setup)
 
-Tap **Connect AI** below the message box and enter your OpenRouter key. The main interface is only the brain and the conversation, with no settings menus. The default `openrouter/auto` lets OpenRouter select a model; the provider adapter keeps model selection separate from the minimal UI. Charges use the supplied account. The key is not persisted or sent to the Mindlight server. Sending a message transmits recent conversation and saved notes to OpenRouter and its selected model provider. Do not enter secrets into a shared device.
+The bridge uses the official CLI’s existing login without reading, extracting, or copying its credentials. Each response runs in an empty temporary workspace with read-only sandboxing, shell tools and integrations disabled, and personal configuration ignored. Conversation context and your saved notes are sent to Codex/OpenAI to answer your message. Your local browser stores notes; chat history stays in tab memory.
 
-### Personal Codex prototype
+The launcher generates a private token in ignored `.dev.vars`, binds the app and bridge to loopback, and detects occupied ports before changing configuration. The bridge requires authentication, rejects direct browser-origin requests, limits input and concurrent requests, and times out long responses. The local API validates conversation payloads. **Do not publish or tunnel your Codex bridge**: the public website does not use it, and the server only allows this provider during development. Mindlight is an independent educational project, not an official OpenAI product.
 
-The bridge uses your installed, signed-in Codex CLI without extracting or copying its credentials. It runs with read-only sandboxing, tools disabled, user configuration ignored, and a temporary empty workspace. It is only for your own local prototype; it is **not enabled on the public website**, and it requires your computer to stay awake.
+`npm run dev:codex` remains an alias for `npm run local`. `npm run doctor` checks CLI compatibility and login without changing them. `npm run dev` starts the app alone for demo/OpenRouter development; `npm run build` emits the Cloudflare-compatible site.
 
-Run `npm run dev:codex`. It checks your existing Codex login, creates a private bridge token in ignored `.dev.vars`, and starts both localhost servers. The chat connects automatically and shows **Codex** beneath the composer. No API key or `/local` command is needed. If you are not signed in, first run `codex login`.
+### OpenRouter (optional, including the public site)
 
-The bridge binds to `127.0.0.1`, requires bearer authentication, rejects browser-origin requests, limits input and concurrent requests, and times out long responses. Never put `.dev.vars` or your Codex credentials in Git. Stop the launcher with Ctrl+C to stop both servers. A real reply through the local app and signed-in CLI was verified on September 24, 2026.
+Tap **Connect AI** below the message box and enter your OpenRouter key. In a Codex-connected tab, tap **Disconnect** first. The key stays in tab memory and goes directly to OpenRouter. Recent conversation and saved notes go to OpenRouter and its selected model provider; its charges apply. The default is `openrouter/auto`.
 
-The **Center** button restores the brain’s initial rotation and zoom in both WebGL and the Canvas fallback.
+The `/api/chat` boundary keeps the interface, memory, and brain mapping separate from the provider, so Codex can be replaced later.
 
 ### Hosted OpenRouter
 
