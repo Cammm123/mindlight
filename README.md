@@ -4,7 +4,7 @@
 
 ## What it does
 
-- Real anatomical model, interactive rotation, X-ray/solid views, and selectable region explanations.
+- Real anatomical model, interactive rotation, an X-ray view, and explanations that appear only when a region is selected.
 - Eight approachable functional groupings: frontal, parietal, temporal, occipital, hippocampus, amygdala, cerebellum, and brainstem.
 - Topic-based educational highlights and explanations for each conversation turn.
 - Guided demo available without an account. This is explicitly labeled and is **not an LLM**.
@@ -28,7 +28,7 @@ Open the printed local URL. `npm run build` emits the Cloudflare-compatible site
 
 ### OpenRouter (works on the public site now)
 
-Open **Chat settings**, enter your OpenRouter key and model ID, and choose **Connect OpenRouter**. The default `openrouter/auto` lets OpenRouter select a model; set an explicit model to control cost. Charges use the supplied account. The key is not persisted or sent to the Mindlight server. Sending a message transmits recent conversation and saved notes to OpenRouter and its selected model provider. Do not enter secrets into a shared device.
+Tap **Connect AI** below the message box and enter your OpenRouter key. The main interface is only the brain and the conversation, with no settings menus. The default `openrouter/auto` lets OpenRouter select a model; the provider adapter keeps model selection separate from the minimal UI. Charges use the supplied account. The key is not persisted or sent to the Mindlight server. Sending a message transmits recent conversation and saved notes to OpenRouter and its selected model provider. Do not enter secrets into a shared device.
 
 ### Personal Codex prototype
 
@@ -37,7 +37,7 @@ The bridge uses your installed, signed-in Codex CLI without extracting or copyin
 1. Generate a random bridge token: `openssl rand -hex 32`.
 2. Set `CODEX_BRIDGE_TOKEN` in the shell that runs `node scripts/codex-bridge.mjs`.
 3. Create ignored `.dev.vars` in the project with `CHAT_PROVIDER=codex` and the same `CODEX_BRIDGE_TOKEN` value.
-4. Restart `npm run dev`. Select **Use hosted / local AI** in Chat settings.
+4. Restart `npm run dev`. Type `/local` in the development chat to use the bridge.
 
 Never put the token or your Codex login in Git. The bridge binds to `127.0.0.1`, requires bearer authentication, rejects browser-origin requests, limits input and concurrent requests, and times out long responses. Check that your CLI supports the documented flags before use. The bridge's end-to-end model call has not yet been verified on a signed-in runtime.
 

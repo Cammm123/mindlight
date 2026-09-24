@@ -11,7 +11,7 @@ export default function Brain({active,selected,onSelect,xray,rotate,reset}:{acti
  useEffect(()=>{resetCamera.current()},[reset]);
  useEffect(()=>{
   const container=host.current!;let renderer:T.WebGLRenderer;
-  try{renderer=new T.WebGLRenderer({antialias:true,alpha:true,powerPreference:'low-power'})}catch{setStatus('3D is unavailable on this device. You can still explore every region below.');return;}
+  try{renderer=new T.WebGLRenderer({antialias:true,alpha:true,powerPreference:'low-power'})}catch{setStatus('3D is unavailable on this device. Chat still works.');return;}
   let disposed=false,frame=0;renderer.setPixelRatio(Math.min(window.devicePixelRatio,1.7));renderer.setClearColor(0,0);container.appendChild(renderer.domElement);
   const scene=new T.Scene(),camera=new T.PerspectiveCamera(36,1,.01,100);camera.position.set(-5.6,2.4,5.8);
   const controls=new OrbitControls(camera,renderer.domElement);controls.enablePan=false;controls.enableDamping=true;controls.minDistance=4;controls.maxDistance=12;controls.autoRotateSpeed=.45;
@@ -31,7 +31,7 @@ export default function Brain({active,selected,onSelect,xray,rotate,reset}:{acti
    // Separate traversal: keep actual anatomy and expose its triangulated skeleton.
    for(const m of meshes){const wire=new T.LineSegments(new T.WireframeGeometry(m.geometry),new T.LineBasicMaterial({color:'#9eafcb',transparent:true,opacity:.055,depthWrite:false}));wire.userData.region=m.userData.region;m.add(wire);wires.push(wire)}
    scene.updateMatrixWorld(true);setStatus('');
-  },undefined,()=>setStatus('The 3D model could not load. Refresh to retry, or explore the region cards below.'));
+  },undefined,()=>setStatus('The brain could not load. Refresh to retry. Chat still works.'));
   const ray=new T.Raycaster(),pointer=new T.Vector2();let start=[0,0];const down=(e:PointerEvent)=>{start=[e.clientX,e.clientY]};
   const up=(e:PointerEvent)=>{if(Math.hypot(e.clientX-start[0],e.clientY-start[1])>5)return;const rect=renderer.domElement.getBoundingClientRect();pointer.set((e.clientX-rect.left)/rect.width*2-1,-(e.clientY-rect.top)/rect.height*2+1);ray.setFromCamera(pointer,camera);const hit=ray.intersectObjects(meshes,false).find(h=>h.object.userData.region);if(hit)state.current.onSelect(hit.object.userData.region)};
   renderer.domElement.addEventListener('pointerdown',down);renderer.domElement.addEventListener('pointerup',up);
@@ -44,5 +44,5 @@ export default function Brain({active,selected,onSelect,xray,rotate,reset}:{acti
   };frame=requestAnimationFrame(draw);
   return()=>{disposed=true;cancelAnimationFrame(frame);resize.disconnect();controls.dispose();draco.dispose();renderer.domElement.removeEventListener('pointerdown',down);renderer.domElement.removeEventListener('pointerup',up);for(const w of wires){w.geometry.dispose();w.material.dispose()}for(const m of meshes){m.geometry.dispose();m.material.dispose()}renderer.dispose();renderer.domElement.remove();};
  },[]);
- return <div className="brain-canvas" ref={host} role="img" aria-label="Interactive 3D anatomical human brain. Drag to rotate; scroll to zoom. Accessible region controls are below.">{status&&<div className="model-status" role="status">{status}</div>}</div>
+ return <div className="brain-canvas" ref={host} role="img" aria-label="Interactive 3D anatomical human brain. Drag to rotate; scroll to zoom. Use the arrow keys on the brain to explore regions.">{status&&<div className="model-status" role="status">{status}</div>}</div>
 }

@@ -1,57 +1,69 @@
 'use client';
 import {useState,useEffect,useRef} from 'react';
+import {ArrowUp,Plus,X,Square} from 'lucide-react';
 import {reply,demoReply,memoryAction,type Message,type ChatConfig} from './chat-service';
-import {ArrowUp,ArrowUpRight,BrainCircuit,RotateCcw,Pause,Play,ScanLine,Info,Sparkles,Plus,MessageCircle,Bookmark,Calculator,Heart,Eye,ChevronRight,Settings2} from 'lucide-react';
-import {Dialog,DialogContent,DialogTitle,DialogDescription} from '@/components/ui/dialog';
 import Brain from './Brain';
-import {regions,findRegion,analyze,prompts,type RegionId} from './brain-data';
+import {regions,findRegion,analyze,type RegionId} from './brain-data';
+
 export default function Home(){
- const [selected,setSelected]=useState<RegionId|null>('temporal'),[active,setActive]=useState<RegionId[]>(['temporal','frontal']),[xray,setXray]=useState(true),[rotate,setRotate]=useState(false),[reset,setReset]=useState(0),[about,setAbout]=useState(false),[input,setInput]=useState('');
- const [activity,setActivity]=useState(analyze('Hello'));
+ const [selected,setSelected]=useState<RegionId|null>(null);
+ const [activity,setActivity]=useState(analyze('hello'));
  const [messages,setMessages]=useState<Message[]>([]);
+ const [input,setInput]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState('');
+ const [notes,setNotes]=useState<string[]>([]),[storageReady,setStorageReady]=useState(false);
  const [config,setConfig]=useState<ChatConfig>({provider:'demo',apiKey:'',model:'openrouter/auto'});
- const [settings,setSettings]=useState(false),[notes,setNotes]=useState<string[]>([]),[busy,setBusy]=useState(false),[error,setError]=useState(''),[storageReady,setStorageReady]=useState(false);
- const scroll=useRef<HTMLDivElement>(null),request=useRef<AbortController|null>(null),busyRef=useRef(false);
- useEffect(()=>{try{const stored=JSON.parse(localStorage.getItem('mindlight-notes')||'[]');if(Array.isArray(stored))setNotes(stored.filter(n=>typeof n==='string').slice(-30))}catch{}setStorageReady(true);return()=>request.current?.abort()},[]);
- useEffect(()=>{if(storageReady)try{localStorage.setItem('mindlight-notes',JSON.stringify(notes))}catch{setError('This browser cannot save notes across visits. Notes still work for this session.')}},[notes,storageReady]);
- useEffect(()=>{if(scroll.current&&messages.length)scroll.current.scrollTop=scroll.current.scrollHeight},[messages,busy]);
+ const [connecting,setConnecting]=useState(false),[keyDraft,setKeyDraft]=useState('');
+ const scroll=useRef<HTMLDivElement>(null),request=useRef<AbortController|null>(null),busyRef=useRef(false),composer=useRef<HTMLTextAreaElement>(null);
+ useEffect(()=>{try{const saved=JSON.parse(localStorage.getItem('mindlight-notes')||'[]');if(Array.isArray(saved))setNotes(saved.filter(n=>typeof n==='string').slice(-30))}catch{}setStorageReady(true);return()=>request.current?.abort()},[]);
+ useEffect(()=>{if(storageReady)try{localStorage.setItem('mindlight-notes',JSON.stringify(notes))}catch{setError('Notes work in this conversation, but this browser cannot save them across visits.')}},[notes,storageReady]);
+ useEffect(()=>{if(scroll.current)scroll.current.scrollTop=scroll.current.scrollHeight},[messages,busy,connecting]);
  useEffect(()=>{
   const context=(document as unknown as {modelContext?:{registerTool:(tool:unknown,options:unknown)=>Promise<void>|void}}).modelContext;if(!context?.registerTool)return;const lifecycle=new AbortController();
   try{void Promise.resolve(context.registerTool({name:'explore_brain_region',description:'Select an anatomical brain region and show its educational explanation.',inputSchema:{type:'object',properties:{region:{type:'string',enum:regions.map(r=>r.id)}},required:['region'],additionalProperties:false},annotations:{readOnlyHint:false},execute:async(input:{region:string})=>{const region=regions.find(r=>r.id===input.region);if(!region)throw new Error('Unknown region');setSelected(region.id);await new Promise<void>(resolve=>requestAnimationFrame(()=>resolve()));return {region:region.name,explanation:region.description}}},{signal:lifecycle.signal})).catch(()=>{})}catch{}return()=>lifecycle.abort();
  },[]);
- const send=async(text:string)=>{
-  text=text.trim();if(!text||busyRef.current)return;if(text.length>4000){setError('Please keep each message under 4,000 characters.');return;}
-  busyRef.current=true;setBusy(true);setError('');const a=analyze(text);setActivity(a);setActive(a.regions);setSelected(a.regions.at(-1)!);
-  const next:Message[]=[...messages,{role:'user',content:text}];setMessages(next);setInput('');
-  let updated=notes;const action=memoryAction(text);let answer='';
-  if(action==='forget'){updated=[];setNotes([]);answer='Your saved notes have been cleared from this device. Earlier messages remain in this conversation; start a new conversation to clear that context too.';}
-  else if(action==='save'){const note=text.replace(/^\s*(?:please\s+)?remember\s+(?:that\s+)?/i,'').slice(0,500);updated=[...notes.filter(n=>n!==note),note].slice(-30);setNotes(updated);answer=`Saved on this device: “${note}”\n\nYou can ask what I remember, or manage your notes in Chat settings.`;}
-  else if(action==='recall'){answer=notes.length?'Here are your saved notes:\n'+notes.map(n=>'• '+n).join('\n'):'No saved notes yet. Try “Remember that my favorite place is the ocean.”';}
+ const send=async(raw:string)=>{
+  const text=raw.trim();if(!text||busyRef.current)return;
+  if(text==='/connect'){setConnecting(true);setInput('');return;}
+  if(text==='/local'&&import.meta.env.DEV){setConfig(c=>({...c,provider:'hosted'}));setInput('');return;}
+  if(text.length>4000){setError('Please keep messages under 4,000 characters.');return;}
+  busyRef.current=true;setBusy(true);setError('');setInput('');setSelected(null);
+  const next:Message[]=[...messages,{role:'user',content:text}];setMessages(next);
+  let updated=notes,answer='';const action=memoryAction(text);
+  if(/(?:why|what|explain).*(?:lit|light|glow|highlight|active|brain region)/i.test(text))answer=activity.explanation;
+  else{setActivity(analyze(text));
+   if(action==='forget'){updated=[];setNotes([]);answer='I’ve cleared your saved notes. Start a new chat to clear the earlier conversation too.';}
+   else if(action==='save'){const note=text.replace(/^\s*(?:please\s+)?remember\s+(?:that\s+)?/i,'').slice(0,500);updated=[...notes.filter(n=>n!==note),note].slice(-30);setNotes(updated);answer=`I’ll remember: “${note}”\n\nSaved on this device. Say “forget all notes” to clear it.`;}
+   else if(action==='recall')answer=notes.length?notes.map(n=>'• '+n).join('\n'):'No saved notes yet. Tell me something to remember.';
+  }
   const controller=new AbortController();request.current=controller;const timeout=setTimeout(()=>controller.abort(),120000);
   try{if(!answer)answer=config.provider==='demo'?demoReply(text,updated):await reply(next,updated,config,controller.signal);setMessages([...next,{role:'assistant',content:answer}]);}
-  catch(e){setError(e instanceof Error&&e.name!=='AbortError'?e.message:'The request was stopped or took too long. Please try again.');setInput(text)}finally{clearTimeout(timeout);setBusy(false);busyRef.current=false;}
+  catch(e){setError(e instanceof Error&&e.name!=='AbortError'?e.message:'The reply was stopped. You can try again.');setInput(text)}finally{clearTimeout(timeout);setBusy(false);busyRef.current=false;}
  };
- const newChat=()=>{if(busyRef.current)return;setMessages([]);setInput('');setError('');const a=analyze('hello');setActivity(a);setActive(a.regions);setSelected('temporal')};
-
- return <main className="app-shell">
-  <header className="topbar"><a href="/" className="wordmark"><BrainCircuit size={26}/><span>mindlight<span className="brand-dot">.</span></span></a><span className="edition">A CONVERSATION, ILLUMINATED</span><button className="text-button" onClick={()=>setAbout(true)}>Behind the glow <ArrowUpRight size={15}/></button></header>
-  <section className="intro"><div><div className="eyebrow">THE HUMAN BRAIN, IN CONVERSATION</div><h1>A little conversation.<br/><span>A whole world inside.</span></h1></div><p>Follow a thought. See the connections.<br/>Discover what makes us human.</p></section>
+ const newChat=()=>{if(busyRef.current)return;setMessages([]);setInput('');setError('');setSelected(null);setActivity(analyze('hello'));setConnecting(false);setKeyDraft('');composer.current?.focus()};
+ const region=selected?findRegion(selected):null;
+ return <main className="mindlight">
+  <header className="topbar"><span className="wordmark">mindlight<span>.</span></span><button className="icon-button" aria-label="New chat" title="New chat" disabled={busy} onClick={newChat}><Plus size={20}/></button></header>
   <div className="workspace">
-   <section className="explorer" aria-label="Brain explorer"><div className="panel-heading"><span><span className="live-dot"/>BRAIN EXPLORER</span><span className="small-label">Educational simulation <Info size={13}/></span></div>
-    <div className="brain-stage"><div className="stage-caption"><span className="eyebrow">01 / LIVE ATLAS</span><p>Every thought is a collaboration.</p></div><Brain active={active} selected={selected} onSelect={setSelected} xray={xray} rotate={rotate} reset={reset}/><div className="orientation">SUPERIOR <span>↑</span></div><div className="stage-bottom"><span>Drag to rotate · Scroll to zoom · Tap to explore</span><div className="view-controls"><button title="Reset view" aria-label="Reset view" onClick={()=>setReset(r=>r+1)}><RotateCcw size={16}/></button><button title={rotate?'Pause rotation':'Rotate brain'} aria-label={rotate?'Pause rotation':'Rotate brain'} aria-pressed={rotate} onClick={()=>setRotate(!rotate)}>{rotate?<Pause size={16}/>:<Play size={16}/>}</button><button className={xray?'selected':''} aria-label="Toggle X-ray view" aria-pressed={xray} onClick={()=>setXray(!xray)}><ScanLine size={16}/><span>X-ray</span></button></div></div></div>
-    <div className="network"><div className="network-title"><span className="eyebrow">IN THE SPOTLIGHT</span><span>{active.length} regions in this example</span></div><div className="region-chips">{regions.map(r=><button key={r.id} onClick={()=>setSelected(r.id)} className={selected===r.id?'chosen':''} aria-pressed={selected===r.id}><i style={{background:r.color,opacity:active.includes(r.id)?1:.4}}/>{r.name}</button>)}</div>{selected&&<div className="region-detail"><div className="region-number" style={{color:findRegion(selected).color}}>↗</div><div><h3>{findRegion(selected).name}<span>{findRegion(selected).role}</span></h3><p>{findRegion(selected).description}</p></div></div>}</div>
+   <section className="brain-panel" aria-label="Brain explorer">
+    <div className="brain-interaction" tabIndex={0} aria-label="Interactive brain. Drag to rotate. Use left and right arrow keys to explore regions; Escape closes the explanation." onKeyDown={e=>{if(e.key==='Escape')setSelected(null);else if(e.key==='ArrowRight'||e.key==='ArrowLeft'){e.preventDefault();const i=regions.findIndex(r=>r.id===selected);setSelected(regions[(i+(e.key==='ArrowRight'?1:regions.length-1)+regions.length)%regions.length].id)}}}>
+     <Brain active={activity.regions} selected={selected} onSelect={setSelected} xray={true} rotate={false} reset={0}/>
+    </div>
+    {region?<div className="region-note" aria-live="polite"><button className="close-note" aria-label="Close region explanation" onClick={()=>setSelected(null)}><X size={16}/></button><strong style={{color:region.color}}>{region.name}</strong><p>{region.description}</p></div>:<p className="brain-hint">Drag to rotate · Tap to explore</p>}
+    <a className="model-credit" href="https://github.com/Cammm123/mindlight#anatomy-attribution" target="_blank" rel="noreferrer">Anatomy credits</a>
    </section>
-   <section className="chat-panel" aria-label="Conversation"><div className="chat-heading"><div><MessageCircle size={19}/><h2>The conversation</h2></div><button className="icon-button" aria-label="New conversation" disabled={busy} onClick={newChat}><Plus size={20}/></button></div><div className="chat-scroll" ref={scroll}><div className="assistant-label"><span className="assistant-icon"><Sparkles size={15}/></span>MINDLIGHT <span>YOUR CURIOUS COMPANION</span></div><h2 className="welcome">What's on your mind?</h2><p className="welcome-copy">A tricky question. A favorite memory. A passing thought. Start anywhere, and watch the brain light up.</p><div className="mode-note">{config.provider==='demo'?'Guided demo · Connect AI for open-ended chat':config.provider==='openrouter'?'OpenRouter · Your model, your conversation':'Hosted chat'}</div><div className="suggestions">{prompts.map((p,i)=>{const Icon=[Calculator,Bookmark,Heart,Eye][i];return <button key={p.label} disabled={busy} onClick={()=>void send(p.text)}><Icon size={17}/><span>{p.label}</span><ArrowUpRight size={14}/></button>})}</div>{messages.map((m,i)=><div key={i} className={'message '+m.role}><span>{m.role==='user'?'YOU':'MINDLIGHT'}</span><p>{m.content}</p></div>)}{busy&&<p role="status" className="mode-note">Mindlight is thinking… <button className="forget-button" onClick={()=>request.current?.abort()}>Stop</button></p>}<div className="thought-card"><div><Sparkles size={15}/><span>A GLIMPSE INSIDE</span></div><h3>{activity.title}</h3><p>{activity.explanation}</p><div className="mini-regions">{activity.regions.map(id=><span key={id}><i style={{background:findRegion(id).color}}/>{findRegion(id).name}</span>)}</div></div></div><div className="composer-area"><form onSubmit={e=>{e.preventDefault();send(input)}}><textarea maxLength={4000} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.nativeEvent.isComposing){e.preventDefault();void send(input)}}} value={input} onChange={e=>setInput(e.target.value)} aria-label="Your message" placeholder="Let your mind wander…" rows={2}/><div className="composer-bottom"><button type="button" className="provider-button" onClick={()=>setSettings(true)} aria-label="Chat settings"><Settings2 size={13}/>{config.provider==='demo'?'Guided demo':config.provider==='openrouter'?'OpenRouter':'Hosted AI'}</button><button aria-label="Send message" disabled={busy||!input.trim()}><ArrowUp size={20}/></button></div></form>{error&&<div role="alert" className="error">{error}</div>}<p>Illustrative highlights. Not a brain scan or medical tool.</p></div></section>
-  </div><footer><span>Different regions. One remarkable mind.</span><button onClick={()=>setAbout(true)}>The science & the limits <ChevronRight size={14}/></button><a href="https://github.com/Cammm123/mindlight" target="_blank" rel="noreferrer">Open source <ArrowUpRight size={13}/></a></footer>
-  <Dialog open={settings} onOpenChange={setSettings}><DialogContent className="info-dialog"><DialogTitle>Make it your conversation</DialogTitle><DialogDescription>Try the guided demo, or bring your OpenRouter account for open-ended chat.</DialogDescription>
-   <div className="settings-row"><button className="primary-button" onClick={()=>{setConfig(c=>({...c,provider:'demo'}));setSettings(false)}}>Use guided demo</button><button onClick={()=>{setConfig(c=>({...c,provider:'hosted'}));setSettings(false)}}>Use hosted / local AI</button></div>
-   <label htmlFor="api-key">OpenRouter API key</label><input id="api-key" type="password" autoComplete="off" value={config.apiKey} placeholder="sk-or-…" onChange={e=>setConfig(c=>({...c,apiKey:e.target.value}))}/>
-   <label htmlFor="model-id">Model ID</label><input id="model-id" value={config.model} onChange={e=>setConfig(c=>({...c,model:e.target.value}))} placeholder="openrouter/auto"/>
-   <p>Your key stays in this tab’s memory and is sent only to OpenRouter. Chat history and saved notes are sent to your chosen model when you send a message. Your account’s usage charges apply. Reloading clears the key.</p>
-   <button className="primary-button" disabled={!config.apiKey.trim()||!config.model.trim()||busy} onClick={()=>{setConfig(c=>({...c,provider:'openrouter',apiKey:c.apiKey.trim(),model:c.model.trim()}));setSettings(false)}}>Connect OpenRouter</button>
-   <div className="settings-row"><strong>Saved notes ({notes.length})</strong><button className="forget-button" onClick={()=>setNotes([])} disabled={!notes.length}>Forget all notes</button></div>
-   <div className="saved-notes">{notes.length?notes.map((n,i)=><div key={i}><span>{n}</span><button aria-label={'Forget note '+(i+1)} onClick={()=>setNotes(ns=>ns.filter((_,j)=>i!==j))}>×</button></div>):<p>No notes yet. Ask Mindlight to remember something. Notes are stored only on this device, not shared with other visitors.</p>}</div>
-  </DialogContent></Dialog>
-  <Dialog open={about} onOpenChange={setAbout}><DialogContent className="info-dialog"><DialogTitle>Behind the glow</DialogTitle><DialogDescription>Mindlight turns conversation into an introduction to brain networks.</DialogDescription><p>Highlights are topic-based teaching illustrations, not measured activity, a prediction about your brain, or a map of an AI model. Many networks are active at once, even when they are not highlighted. Color brightness is artistic, not a probability or firing rate.</p><p>The anatomical model is sourced from Z-Anatomy / BodyParts3D via Brain Project (CC BY-SA 4.0). Functional groupings are simplified, and some deep structures are approximate.</p><a href="https://www.ninds.nih.gov/health-information/public-education/brain-basics" target="_blank" rel="noreferrer">Read NIH Brain Basics ↗</a><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC6866939/" target="_blank" rel="noreferrer">Research: networks involved in arithmetic ↗</a><a href="https://github.com/itayinbarr/brainproject" target="_blank" rel="noreferrer">Model credits & license ↗</a></DialogContent></Dialog>
+   <section className="chat-panel" aria-label="Chat">
+    <div className="conversation" ref={scroll} role="log" aria-label="Conversation" aria-live="polite" aria-relevant="additions text">
+     {!messages.length&&<p className="hello">What’s on your mind?</p>}
+     {messages.map((m,i)=><div key={i} className={'message '+m.role}><span className="sr-only">{m.role==='user'?'You':'Mindlight'}: </span><p>{m.content}</p></div>)}
+     {busy&&<p className="thinking" role="status">Thinking…</p>}
+     {connecting&&<form className="connection" onSubmit={e=>{e.preventDefault();if(!keyDraft.trim())return;setConfig({provider:'openrouter',apiKey:keyDraft.trim(),model:'openrouter/auto'});setKeyDraft('');setConnecting(false);setError('');composer.current?.focus()}}><div className="connection-heading"><strong>Connect OpenRouter</strong><button type="button" className="icon-button" aria-label="Cancel connection" onClick={()=>{setConnecting(false);setKeyDraft('')}}><X size={16}/></button></div><input type="password" aria-label="OpenRouter API key" autoComplete="off" value={keyDraft} onChange={e=>setKeyDraft(e.target.value)} placeholder="Your API key"/><p>The key stays in this tab. Messages and saved notes go to OpenRouter. Your account’s charges apply.</p><button className="connect-button" disabled={!keyDraft.trim()}>Connect</button></form>}
+    </div>
+    <div className="composer-area">
+     {error&&<p className="error" role="alert">{error}</p>}
+     <form className="composer" onSubmit={e=>{e.preventDefault();void send(input)}}><textarea ref={composer} value={input} maxLength={4000} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.nativeEvent.isComposing){e.preventDefault();void send(input)}}} aria-label="Your message" placeholder="Message Mindlight…" rows={1}/>{busy?<button type="button" className="send" aria-label="Stop reply" onClick={()=>request.current?.abort()}><Square size={15}/></button>:<button className="send" aria-label="Send message" disabled={!input.trim()}><ArrowUp size={20}/></button>}</form>
+     <div className="quiet-footer"><button disabled={busy} onClick={()=>{if(config.provider!=='demo'){setConfig({provider:'demo',apiKey:'',model:'openrouter/auto'})}else setConnecting(v=>!v)}}>{config.provider==='demo'?'Demo · Connect AI':config.provider==='openrouter'?'OpenRouter · Disconnect':'Local AI · Disconnect'}</button><span>Illustrative brain activity</span></div>
+    </div>
+   </section>
+  </div>
  </main>
 }
