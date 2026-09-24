@@ -12,11 +12,11 @@ export default function Brain({active,selected,onSelect,xray,rotate,reset}:{acti
  useEffect(()=>{resetCamera.current()},[reset]);
  useEffect(()=>{
   const container=host.current!;let renderer:T.WebGLRenderer;
-  try{renderer=new T.WebGLRenderer({antialias:true,alpha:true,powerPreference:'low-power'})}catch{return createBrainFallback(container,()=>state.current,setStatus);}
+  try{renderer=new T.WebGLRenderer({antialias:true,alpha:true,powerPreference:'low-power'})}catch{const fallback=createBrainFallback(container,()=>state.current,setStatus);resetCamera.current=fallback.reset;return()=>{resetCamera.current=()=>{};fallback.dispose()};}
   let disposed=false,frame=0;renderer.setPixelRatio(Math.min(window.devicePixelRatio,1.7));renderer.setClearColor(0,0);container.appendChild(renderer.domElement);
   const scene=new T.Scene(),camera=new T.PerspectiveCamera(36,1,.01,100);camera.position.set(-5.6,2.4,5.8);
   const controls=new OrbitControls(camera,renderer.domElement);controls.enablePan=false;controls.enableDamping=true;controls.minDistance=4;controls.maxDistance=12;controls.autoRotateSpeed=.45;
-  resetCamera.current=()=>{camera.position.set(-5.6,2.4,5.8);controls.target.set(0,0,0);controls.update()};
+  resetCamera.current=()=>{const damping=controls.enableDamping;controls.enableDamping=false;controls.update();camera.position.set(-5.6,2.4,5.8);controls.target.set(0,0,0);controls.update();controls.enableDamping=damping};
   scene.add(new T.AmbientLight('#a8bfe5',1.1));const key=new T.DirectionalLight('#d2deff',3);key.position.set(-4,6,5);scene.add(key);const rim=new T.DirectionalLight('#819be5',2);rim.position.set(4,1,-4);scene.add(rim);
   const model=new T.Group();scene.add(model);const meshes:T.Mesh<T.BufferGeometry,T.MeshStandardMaterial>[]=[];const wires:T.LineSegments<T.WireframeGeometry,T.LineBasicMaterial>[]=[];
   const draco=new DRACOLoader().setDecoderPath('/draco/');const loader=new GLTFLoader().setDRACOLoader(draco);

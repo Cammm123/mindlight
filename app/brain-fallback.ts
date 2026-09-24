@@ -6,7 +6,7 @@ type State={active:RegionId[];selected:RegionId|null;onSelect:(id:RegionId)=>voi
 type Triangle={points:T.Vector3[];id:RegionId|undefined};
 // CPU projection of the same anatomical mesh for browsers without WebGL.
 export function createBrainFallback(host:HTMLElement,state:()=>State,status:(s:string)=>void){
- const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d');if(!ctx){status('This browser cannot display the brain. Chat still works.');return ()=>{}}
+ const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d');if(!ctx){status('This browser cannot display the brain. Chat still works.');return {reset:()=>{},dispose:()=>{}}}
  host.appendChild(canvas);let disposed=false,triangles:Triangle[]=[],yaw=0,pitch=0,zoom=1,dirty=true,last='';
  let hitTriangles:{xy:number[];depth:number;id:RegionId}[]=[];
  const camera=new T.PerspectiveCamera(36,1,.01,100);camera.position.set(-5.6,2.4,5.8);camera.lookAt(0,0,0);camera.updateMatrixWorld();
@@ -36,5 +36,5 @@ export function createBrainFallback(host:HTMLElement,state:()=>State,status:(s:s
   for(const triangle of triangles){const lit=!!triangle.id&&(s.active.includes(triangle.id)||s.selected===triangle.id),color=triangle.id?findRegion(triangle.id).color:'#8c9db9';const ps=triangle.points.map(p=>p.clone().multiplyScalar(zoom).applyMatrix4(matrix));if(ps.some(p=>p.z>1))continue;const xy=ps.flatMap(p=>[(p.x+1)*w/2,(1-p.y)*h/2]);ctx.beginPath();ctx.moveTo(xy[0],xy[1]);ctx.lineTo(xy[2],xy[3]);ctx.lineTo(xy[4],xy[5]);ctx.closePath();ctx.strokeStyle=color;ctx.globalAlpha=lit?.22:.045;ctx.lineWidth=.7*(w/host.clientWidth);ctx.stroke();if(lit){ctx.fillStyle=color;ctx.globalAlpha=.08;ctx.fill()}if(triangle.id)hitTriangles.push({xy,depth:(ps[0].z+ps[1].z+ps[2].z)/3,id:triangle.id});
   }ctx.globalAlpha=1;
  },100);
- return()=>{disposed=true;clearInterval(timer);resize.disconnect();draco.dispose();canvas.remove();triangles=[];hitTriangles=[]};
+ return {reset:()=>{yaw=0;pitch=0;zoom=1;dragging=false;dirty=true},dispose:()=>{disposed=true;clearInterval(timer);resize.disconnect();draco.dispose();canvas.remove();triangles=[];hitTriangles=[]}};
 }

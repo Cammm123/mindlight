@@ -8,3 +8,5 @@
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
 
 .renderer-canvas{position:absolute;inset:0}
+
+.center-brain{position:absolute;right:12px;top:12px;display:flex;align-items:center;gap:7px;padding:8px 11px;border:1px solid #ffffff14;border-radius:9px;color:#9eafc8;background:#111924b3;font-size:12px}.center-brain:hover{color:#e7ebf4;background:#202c3c}

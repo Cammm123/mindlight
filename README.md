@@ -34,12 +34,11 @@ Tap **Connect AI** below the message box and enter your OpenRouter key. The main
 
 The bridge uses your installed, signed-in Codex CLI without extracting or copying its credentials. It runs with read-only sandboxing, tools disabled, user configuration ignored, and a temporary empty workspace. It is only for your own local prototype; it is **not enabled on the public website**, and it requires your computer to stay awake.
 
-1. Generate a random bridge token: `openssl rand -hex 32`.
-2. Set `CODEX_BRIDGE_TOKEN` in the shell that runs `node scripts/codex-bridge.mjs`.
-3. Create ignored `.dev.vars` in the project with `CHAT_PROVIDER=codex` and the same `CODEX_BRIDGE_TOKEN` value.
-4. Restart `npm run dev`. Type `/local` in the development chat to use the bridge.
+Run `npm run dev:codex`. It checks your existing Codex login, creates a private bridge token in ignored `.dev.vars`, and starts both localhost servers. The chat connects automatically and shows **Codex** beneath the composer. No API key or `/local` command is needed. If you are not signed in, first run `codex login`.
 
-Never put the token or your Codex login in Git. The bridge binds to `127.0.0.1`, requires bearer authentication, rejects browser-origin requests, limits input and concurrent requests, and times out long responses. Check that your CLI supports the documented flags before use. The bridge's end-to-end model call has not yet been verified on a signed-in runtime.
+The bridge binds to `127.0.0.1`, requires bearer authentication, rejects browser-origin requests, limits input and concurrent requests, and times out long responses. Never put `.dev.vars` or your Codex credentials in Git. Stop the launcher with Ctrl+C to stop both servers. A real reply through the local app and signed-in CLI was verified on September 24, 2026.
+
+The **Center** button restores the brain’s initial rotation and zoom in both WebGL and the Canvas fallback.
 
 ### Hosted OpenRouter
 

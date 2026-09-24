@@ -1,12 +1,13 @@
 'use client';
 import {useState,useEffect,useRef} from 'react';
-import {ArrowUp,Plus,X,Square} from 'lucide-react';
+import {ArrowUp,Plus,X,Square,Focus} from 'lucide-react';
 import {reply,demoReply,memoryAction,type Message,type ChatConfig} from './chat-service';
 import Brain from './Brain';
 import {regions,findRegion,analyze,type RegionId} from './brain-data';
 
 export default function Home(){
  const [selected,setSelected]=useState<RegionId|null>(null);
+ const [cameraReset,setCameraReset]=useState(0);
  const [activity,setActivity]=useState(analyze('hello'));
  const [messages,setMessages]=useState<Message[]>([]);
  const [input,setInput]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState('');
@@ -15,6 +16,7 @@ export default function Home(){
  const [connecting,setConnecting]=useState(false),[keyDraft,setKeyDraft]=useState('');
  const scroll=useRef<HTMLDivElement>(null),request=useRef<AbortController|null>(null),busyRef=useRef(false),composer=useRef<HTMLTextAreaElement>(null);
  useEffect(()=>{try{const saved=JSON.parse(localStorage.getItem('mindlight-notes')||'[]');if(Array.isArray(saved))setNotes(saved.filter(n=>typeof n==='string').slice(-30))}catch{}setStorageReady(true);return()=>request.current?.abort()},[]);
+ useEffect(()=>{if(!import.meta.env.DEV)return;const controller=new AbortController();void fetch('/api/chat',{signal:controller.signal}).then(r=>r.json() as Promise<{provider?:string}>).then(data=>{if(data.provider==='codex'&&!controller.signal.aborted)setConfig(c=>c.provider==='demo'?{...c,provider:'hosted'}:c)}).catch(()=>{});return()=>controller.abort()},[]);
  useEffect(()=>{if(storageReady)try{localStorage.setItem('mindlight-notes',JSON.stringify(notes))}catch{setError('Notes work in this conversation, but this browser cannot save them across visits.')}},[notes,storageReady]);
  useEffect(()=>{if(scroll.current)scroll.current.scrollTop=scroll.current.scrollHeight},[messages,busy,connecting]);
  useEffect(()=>{
@@ -46,8 +48,9 @@ export default function Home(){
   <div className="workspace">
    <section className="brain-panel" aria-label="Brain explorer">
     <div className="brain-interaction" tabIndex={0} aria-label="Interactive brain. Drag to rotate. Use left and right arrow keys to explore regions; Escape closes the explanation." onKeyDown={e=>{if(e.key==='Escape')setSelected(null);else if(e.key==='ArrowRight'||e.key==='ArrowLeft'){e.preventDefault();const i=regions.findIndex(r=>r.id===selected);setSelected(regions[(i+(e.key==='ArrowRight'?1:regions.length-1)+regions.length)%regions.length].id)}}}>
-     <Brain active={activity.regions} selected={selected} onSelect={setSelected} xray={true} rotate={false} reset={0}/>
+     <Brain active={activity.regions} selected={selected} onSelect={setSelected} xray={true} rotate={false} reset={cameraReset}/>
     </div>
+    <button className="center-brain" onClick={()=>{setCameraReset(n=>n+1);setSelected(null)}} title="Reset rotation and zoom"><Focus size={15}/>Center</button>
     {region?<div className="region-note" aria-live="polite"><button className="close-note" aria-label="Close region explanation" onClick={()=>setSelected(null)}><X size={16}/></button><strong style={{color:region.color}}>{region.name}</strong><p>{region.description}</p></div>:<p className="brain-hint">Drag to rotate · Tap to explore</p>}
     <a className="model-credit" href="https://github.com/Cammm123/mindlight#anatomy-attribution" target="_blank" rel="noreferrer">Anatomy credits</a>
    </section>
@@ -61,7 +64,7 @@ export default function Home(){
     <div className="composer-area">
      {error&&<p className="error" role="alert">{error}</p>}
      <form className="composer" onSubmit={e=>{e.preventDefault();void send(input)}}><textarea ref={composer} value={input} maxLength={4000} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.nativeEvent.isComposing){e.preventDefault();void send(input)}}} aria-label="Your message" placeholder="Message Mindlight…" rows={1}/>{busy?<button type="button" className="send" aria-label="Stop reply" onClick={()=>request.current?.abort()}><Square size={15}/></button>:<button className="send" aria-label="Send message" disabled={!input.trim()}><ArrowUp size={20}/></button>}</form>
-     <div className="quiet-footer"><button disabled={busy} onClick={()=>{if(config.provider!=='demo'){setConfig({provider:'demo',apiKey:'',model:'openrouter/auto'})}else setConnecting(v=>!v)}}>{config.provider==='demo'?'Demo · Connect AI':config.provider==='openrouter'?'OpenRouter · Disconnect':'Local AI · Disconnect'}</button><span>Illustrative brain activity</span></div>
+     <div className="quiet-footer"><button disabled={busy} onClick={()=>{if(config.provider!=='demo'){setConfig({provider:'demo',apiKey:'',model:'openrouter/auto'})}else setConnecting(v=>!v)}}>{config.provider==='demo'?'Demo · Connect AI':config.provider==='openrouter'?'OpenRouter · Disconnect':'Codex · Disconnect'}</button><span>Illustrative brain activity</span></div>
     </div>
    </section>
   </div>

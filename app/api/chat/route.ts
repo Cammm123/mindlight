@@ -1,6 +1,13 @@
 import {env} from 'cloudflare:workers';
 import {systemPrompt} from '../../chat-service';
 // Server-side providers share one interface. No provider credential reaches the client.
+export async function GET(){
+ const config=env as unknown as Record<string,string>;
+ if(import.meta.env.DEV&&config.CHAT_PROVIDER==='codex'&&config.CODEX_BRIDGE_TOKEN){
+  try{const r=await fetch('http://127.0.0.1:8788/health',{headers:{Authorization:`Bearer ${config.CODEX_BRIDGE_TOKEN}`},signal:AbortSignal.timeout(2000)});if(r.ok)return Response.json({provider:'codex'},{headers:{'Cache-Control':'no-store'}})}catch{}
+ }
+ return Response.json({provider:'demo'},{headers:{'Cache-Control':'no-store'}});
+}
 export async function POST(request:Request){
  const origin=request.headers.get('origin');if(origin&&origin!==new URL(request.url).origin)return Response.json({error:'Origin not allowed'},{status:403});
  if(Number(request.headers.get('content-length')||0)>40000)return Response.json({error:'Too large'},{status:413});
